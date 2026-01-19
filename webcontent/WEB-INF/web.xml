@@ -1,0 +1,83 @@
+<web-app xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+                             http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+         version="3.1">
+
+    <!-- Login -->
+    <servlet>
+        <servlet-name>LoginServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.LoginServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LoginServlet</servlet-name>
+        <url-pattern>/LoginServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Logout -->
+    <servlet>
+        <servlet-name>LogoutServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.LogoutServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LogoutServlet</servlet-name>
+        <url-pattern>/LogoutServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Add Question -->
+    <servlet>
+        <servlet-name>AddQuestionServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.AddQuestionServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AddQuestionServlet</servlet-name>
+        <url-pattern>/AddQuestionServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Create Exam -->
+    <servlet>
+        <servlet-name>CreateExamServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.CreateExamServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>CreateExamServlet</servlet-name>
+        <url-pattern>/CreateExamServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Publish Exam -->
+    <servlet>
+        <servlet-name>PublishExamServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.PublishExamServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>PublishExamServlet</servlet-name>
+        <url-pattern>/PublishExamServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Start Exam (THIS WAS MISSING) -->
+    <servlet>
+        <servlet-name>StartExamServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.StartExamServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>StartExamServlet</servlet-name>
+        <url-pattern>/StartExamServlet</url-pattern>
+    </servlet-mapping>
+    <servlet>
+    <servlet-name>SubmitExamServlet</servlet-name>
+    <servlet-class>com.onlineexam.servlet.SubmitExamServlet</servlet-class>
+</servlet>
+
+<servlet-mapping>
+    <servlet-name>SubmitExamServlet</servlet-name>
+    <url-pattern>/SubmitExamServlet</url-pattern>
+</servlet-mapping>
+    
+
+    <!-- Default page -->
+    <welcome-file-list>
+        <welcome-file>login.jsp</welcome-file>
+    </welcome-file-list>
+
+</web-app>
+
