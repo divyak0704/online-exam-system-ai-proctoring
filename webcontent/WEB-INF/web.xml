@@ -72,6 +72,15 @@
     <servlet-name>SubmitExamServlet</servlet-name>
     <url-pattern>/SubmitExamServlet</url-pattern>
 </servlet-mapping>
+    <servlet>
+    <servlet-name>ProctoringLogServlet</servlet-name>
+    <servlet-class>com.onlineexam.servlet.ProctoringLogServlet</servlet-class>
+</servlet>
+
+<servlet-mapping>
+    <servlet-name>ProctoringLogServlet</servlet-name>
+    <url-pattern>/logViolation</url-pattern>
+</servlet-mapping>
     
 
     <!-- Default page -->

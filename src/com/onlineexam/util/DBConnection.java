@@ -2,17 +2,24 @@ package com.onlineexam.util;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 
 public class DBConnection {
 
-    public static Connection getConnection() throws Exception {
+    // Change "online_exam" to your actual database name
+    private static final String URL = "jdbc:postgresql://localhost:5432/online_exam";
+    private static final String USER = "postgres"; // your PostgreSQL username
+    private static final String PASSWORD = "student123"; // your PostgreSQL password
 
-        Class.forName("org.postgresql.Driver");
+    static {
+        try {
+            Class.forName("org.postgresql.Driver"); // load driver
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
 
-        return DriverManager.getConnection(
-            "jdbc:postgresql://localhost:5432/online_exam",
-            "postgres",
-            "student123"
-        );
+    public static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 }

@@ -9,14 +9,20 @@ public class StartExamServlet extends HttpServlet {
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        // Get examId from URL
-        int examId = Integer.parseInt(request.getParameter("examId"));
+        HttpSession session = request.getSession(false); // Don't create new session
 
-        // Store examId in session
-        HttpSession session = request.getSession();
-        session.setAttribute("examId", examId);
+        if (session == null || session.getAttribute("userId") == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
 
-        // Redirect to exam page
-        response.sendRedirect(request.getContextPath() + "/takeExam.jsp");
+        try {
+            int examId = Integer.parseInt(request.getParameter("examId"));
+            session.setAttribute("examId", examId);
+
+            response.sendRedirect(request.getContextPath() + "/takeExam.jsp");
+        } catch(NumberFormatException e) {
+            response.sendRedirect(request.getContextPath() + "/studentDashboard.jsp");
+        }
     }
 }

@@ -1,1 +1,20 @@
-/build/
+# Eclipse
+.metadata/
+.settings/
+.classpath
+.project
+
+# Servers
+Servers/
+apache-tomcat-*
+work/
+temp/
+logs/
+
+# Compiled files
+*.class
+
+# OS
+.DS_Store
+Thumbs.db
+

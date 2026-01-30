@@ -1,8 +1,18 @@
-<html>
-<body>
-<h2>Exam Result</h2>
+<%@ page import="javax.servlet.http.*,javax.servlet.*" %>
 
-Your Score: <b><%= request.getAttribute("score") %></b>
+<%
+    Integer userId = (Integer) session.getAttribute("userId");
+    if(userId == null){
+        response.sendRedirect("login.jsp");
+        return;
+    }
 
-</body>
-</html>
+    Integer score = (Integer) request.getAttribute("score");
+    Integer totalQuestions = (Integer) request.getAttribute("totalQuestions");
+%>
+
+<h2>Exam Completed</h2>
+
+<p>Score: <b><%= (score != null ? score : 0) %> / <%= (totalQuestions != null ? totalQuestions : 0) %></b></p>
+
+<a href="studentDashboard.jsp">Back to Dashboard</a>

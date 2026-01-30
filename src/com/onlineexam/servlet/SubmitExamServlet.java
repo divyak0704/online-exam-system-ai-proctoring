@@ -1,50 +1,81 @@
 package com.onlineexam.servlet;
 
-import java.io.IOException;
-import java.sql.*;
+import com.onlineexam.util.DBConnection;
 import javax.servlet.*;
 import javax.servlet.http.*;
-import com.onlineexam.util.DBConnection;
+import java.io.IOException;
+import java.sql.*;
+import java.util.Enumeration;
 
 public class SubmitExamServlet extends HttpServlet {
 
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
 
-        HttpSession session = request.getSession();
-        int examId = (Integer) session.getAttribute("examId");
+        HttpSession session = request.getSession(false);
+        if(session == null || session.getAttribute("userId") == null){
+            response.sendRedirect("login.jsp");
+            return;
+        }
+
+        int userId = (Integer) session.getAttribute("userId");
+        int examId = Integer.parseInt(request.getParameter("examId"));
 
         int score = 0;
+        int totalQuestions = 0;
 
-        try {
-            Connection con = DBConnection.getConnection();
+        try (Connection con = DBConnection.getConnection()) {
 
-            PreparedStatement ps = con.prepareStatement(
-                "SELECT question_id, correct_option FROM questions WHERE exam_id = ?"
+            // Count total questions
+            PreparedStatement countPs = con.prepareStatement(
+                "SELECT COUNT(*) FROM questions WHERE exam_id=?"
             );
-            ps.setInt(1, examId);
+            countPs.setInt(1, examId);
+            ResultSet countRs = countPs.executeQuery();
+            if(countRs.next()){
+                totalQuestions = countRs.getInt(1);
+            }
 
-            ResultSet rs = ps.executeQuery();
+            // Check answers
+            Enumeration<String> paramNames = request.getParameterNames();
+            while(paramNames.hasMoreElements()){
+                String param = paramNames.nextElement();
+                if(param.startsWith("q")){
+                    int questionId = Integer.parseInt(param.substring(1));
+                    String selectedOption = request.getParameter(param);
 
-            while (rs.next()) {
-                int qid = rs.getInt("question_id");
-                String correct = rs.getString("correct_option");
-
-                String userAnswer = request.getParameter("q" + qid);
-
-                if (userAnswer != null && userAnswer.equals(correct)) {
-                    score++;
+                    PreparedStatement ps = con.prepareStatement(
+                        "SELECT correct_option FROM questions WHERE question_id=?"
+                    );
+                    ps.setInt(1, questionId);
+                    ResultSet rs = ps.executeQuery();
+                    if(rs.next()){
+                        String correct = rs.getString("correct_option");
+                        if(correct.equalsIgnoreCase(selectedOption)){
+                            score++;
+                        }
+                    }
                 }
             }
 
-            con.close();
+            // Save result
+            PreparedStatement insert = con.prepareStatement(
+                "INSERT INTO results (user_id, exam_id, score, total_questions) VALUES (?, ?, ?, ?)"
+            );
+            insert.setInt(1, userId);
+            insert.setInt(2, examId);
+            insert.setInt(3, score);
+            insert.setInt(4, totalQuestions);
+            insert.executeUpdate();
 
-            request.setAttribute("score", score);
-            RequestDispatcher rd = request.getRequestDispatcher("result.jsp");
-            rd.forward(request, response);
-
-        } catch (Exception e) {
-            throw new ServletException(e);
+        } catch(Exception e){
+            e.printStackTrace();
+            request.setAttribute("error", e.getMessage());
         }
+
+        request.setAttribute("score", score);
+        request.setAttribute("totalQuestions", totalQuestions);
+        RequestDispatcher rd = request.getRequestDispatcher("result.jsp");
+        rd.forward(request, response);
     }
 }
