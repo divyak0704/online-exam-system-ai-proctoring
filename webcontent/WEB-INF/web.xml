@@ -83,6 +83,16 @@
 </servlet-mapping>
     
 
+    <!-- Screenshot (AI Proctoring) -->
+    <servlet>
+        <servlet-name>ScreenshotServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.ScreenshotServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ScreenshotServlet</servlet-name>
+        <url-pattern>/ScreenshotServlet</url-pattern>
+    </servlet-mapping>
+
     <!-- Default page -->
     <welcome-file-list>
         <welcome-file>login.jsp</welcome-file>
