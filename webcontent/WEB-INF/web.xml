@@ -54,7 +54,7 @@
         <url-pattern>/PublishExamServlet</url-pattern>
     </servlet-mapping>
 
-    <!-- Start Exam (THIS WAS MISSING) -->
+    <!-- Start Exam -->
     <servlet>
         <servlet-name>StartExamServlet</servlet-name>
         <servlet-class>com.onlineexam.servlet.StartExamServlet</servlet-class>
@@ -63,34 +63,25 @@
         <servlet-name>StartExamServlet</servlet-name>
         <url-pattern>/StartExamServlet</url-pattern>
     </servlet-mapping>
-    <servlet>
-    <servlet-name>SubmitExamServlet</servlet-name>
-    <servlet-class>com.onlineexam.servlet.SubmitExamServlet</servlet-class>
-</servlet>
 
-<servlet-mapping>
-    <servlet-name>SubmitExamServlet</servlet-name>
-    <url-pattern>/SubmitExamServlet</url-pattern>
-</servlet-mapping>
+    <!-- Submit Exam -->
     <servlet>
-    <servlet-name>ProctoringLogServlet</servlet-name>
-    <servlet-class>com.onlineexam.servlet.ProctoringLogServlet</servlet-class>
-</servlet>
-
-<servlet-mapping>
-    <servlet-name>ProctoringLogServlet</servlet-name>
-    <url-pattern>/logViolation</url-pattern>
-</servlet-mapping>
-    
-
-    <!-- Screenshot (AI Proctoring) -->
-    <servlet>
-        <servlet-name>ScreenshotServlet</servlet-name>
-        <servlet-class>com.onlineexam.servlet.ScreenshotServlet</servlet-class>
+        <servlet-name>SubmitExamServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.SubmitExamServlet</servlet-class>
     </servlet>
     <servlet-mapping>
-        <servlet-name>ScreenshotServlet</servlet-name>
-        <url-pattern>/ScreenshotServlet</url-pattern>
+        <servlet-name>SubmitExamServlet</servlet-name>
+        <url-pattern>/SubmitExamServlet</url-pattern>
+    </servlet-mapping>
+
+    <!-- Proctoring Log -->
+    <servlet>
+        <servlet-name>ProctoringLogServlet</servlet-name>
+        <servlet-class>com.onlineexam.servlet.ProctoringLogServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ProctoringLogServlet</servlet-name>
+        <url-pattern>/logViolation</url-pattern>
     </servlet-mapping>
 
     <!-- Default page -->

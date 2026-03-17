@@ -4,7 +4,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>AI Proctor Exam · Secure Login</title>
+<title>AI Proctor Exam  Secure Login</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Premium AI Proctored Online Examination System login">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -228,9 +228,9 @@ body {
 
 <main class="glass-container">
   <div class="brand-header">
-    <div class="brand-icon">🛡️</div>
+    <div class="brand-icon">exam proctor�</div>
     <h1 class="brand-title">AI Proctor Gateway</h1>
-    <p class="brand-subtitle">Secure & Intelligent Online Examination</p>
+    <p class="brand-subtitle">automated Online Examination</p>
   </div>
 
   <form action="<%= request.getContextPath() %>/LoginServlet" method="post">
@@ -255,7 +255,7 @@ body {
         placeholder="••••••••" required autocomplete="current-password">
     </div>
 
-    <button class="btn-primary" type="submit">Authenticate Session</button>
+    <button class="btn-primary" type="submit">login</button>
   </form>
 
   <div class="footer-text">
