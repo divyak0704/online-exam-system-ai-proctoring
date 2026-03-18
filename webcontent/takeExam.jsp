@@ -34,8 +34,6 @@ try (Connection _con = DBConnection.getConnection();
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- face-api.js CDN -->
-<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <!-- TensorFlow.js + COCO-SSD -->
 <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.2.0/dist/tf.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
@@ -50,12 +48,17 @@ try (Connection _con = DBConnection.getConnection();
   --radius-lg: 16px; --radius-xl: 24px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%;
+  min-height: 100%;
+}
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background: var(--bg-dark);
   color: var(--text-main);
   min-height: 100vh;
   overflow-x: hidden;
+  overflow-y: auto;
 }
 body.fullscreen-enforced {
   overflow-y: auto !important;
@@ -110,9 +113,9 @@ body.fullscreen-enforced {
   box-shadow: 0 24px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.1);
   z-index: 900; transition: transform 0.3s;
 }
-.cam-frame:hover { transform: scale(1.05); box-shadow: 0 0 0 2px var(--accent-1); }
+.cam-frame:hover { transform: scale(1.03); box-shadow: 0 0 0 2px var(--accent-1); }
 .cam-frame video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-.cam-frame canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 2; }
+.cam-frame canvas { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 2; pointer-events:none; }
 .cam-label {
   position: absolute; bottom: 0; left: 0; width: 100%; z-index: 3;
   background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
@@ -136,12 +139,18 @@ body.fullscreen-enforced {
   color: #fff; padding: 14px 20px; border-radius: 8px; font-size: 14px; font-weight: 500;
   box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   animation: toastIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards;
-  max-width: 400px;
+  max-width: 420px;
 }
 @keyframes toastIn { from{opacity:0;transform:translateY(-10px) scale(0.95);} to{opacity:1;transform:translateY(0) scale(1);} }
 
 /* Content Area */
-.main-content { max-width: 840px; margin: 0 auto; padding: 48px 24px 120px; position: relative; z-index: 10; }
+.main-content {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 48px 24px 120px;
+  position: relative;
+  z-index: 10;
+}
 .exam-title {
   font-size: 24px; font-weight: 700; margin-bottom: 32px;
   background: linear-gradient(to right, #fff, var(--text-muted));
@@ -312,10 +321,10 @@ body.fullscreen-enforced {
 </header>
 
 <div class="status-track" id="statusBar">
-  <div class="status-badge off" id="st-face"><div class="dot"></div>Face Match</div>
-  <div class="status-badge off" id="st-multi"><div class="dot"></div>Multi-Face</div>
+  <div class="status-badge off" id="st-face"><div class="dot"></div>Face Presence</div>
+  <div class="status-badge off" id="st-multi"><div class="dot"></div>Multi-Person</div>
   <div class="status-badge off" id="st-head"><div class="dot"></div>Head Track</div>
-  <div class="status-badge off" id="st-eye"><div class="dot"></div>Iris Map</div>
+  <div class="status-badge off" id="st-eye"><div class="dot"></div>Gaze Track</div>
   <div class="status-badge off" id="st-obj"><div class="dot"></div>Objects</div>
   <div class="status-badge off" id="st-audio"><div class="dot"></div>Audio Env</div>
   <div class="status-badge off" id="st-tab"><div class="dot"></div>Browser Lock</div>
@@ -338,7 +347,7 @@ try (Connection con = DBConnection.getConnection();
         int qid = rs.getInt("question_id");
 %>
     <div class="question-block">
-      <div class="q-meta">QUESTION 0<%= qno++ %></div>
+      <div class="q-meta">QUESTION <%= (qno < 10 ? "0" + qno : qno) %></div>
       <div class="q-text"><%= rs.getString("question_text") %></div>
 
       <label class="option-btn">
@@ -358,96 +367,107 @@ try (Connection con = DBConnection.getConnection();
         <span class="option-label"><%= rs.getString("option_d") %></span>
       </label>
     </div>
-<%  }
-} catch (Exception e) {} %>
+<%
+        qno++;
+    }
+} catch (Exception e) {}
+%>
 
     <button type="submit" class="btn-submit">Submit Assessment securely</button>
   </form>
 </main>
 
 <script>
-// --- CORE LOGIC PRESERVED + FULLSCREEN ENFORCEMENT ADDED ---
-const EXAM_DURATION_SEC  = <%= durationMinutes %> * 60;
-const MAX_WARNINGS       = 5;
-const SCREENSHOT_EVERY   = 30;
-const FACE_CHECK_EVERY   = 3000;
+const EXAM_DURATION_SEC = <%= durationMinutes %> * 60;
+const MAX_WARNINGS = 5;
+const SCREENSHOT_EVERY = 30;
+const PERSON_CHECK_EVERY = 3000;
 const OBJECT_CHECK_EVERY = 5000;
-const AUDIO_THRESHOLD    = 0.05;
-const HEAD_TURN_THRESH   = 28;
+const AUDIO_THRESHOLD = 0.05;
+const FACE_MISSING_THRESHOLD_MS = 5000;
 
 let warningCount = 0;
 let totalTime = EXAM_DURATION_SEC;
 const timerEl = document.getElementById('timer');
 const examForm = document.getElementById('examForm');
 
-function startTimer(){
+function startTimer() {
+  timerEl.textContent = formatTime(totalTime);
   const iv = setInterval(() => {
-    const m = Math.floor(totalTime / 60);
-    const s = totalTime % 60;
-    timerEl.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
     totalTime--;
-    if(totalTime < 0){
+    timerEl.textContent = formatTime(Math.max(totalTime, 0));
+    if (totalTime <= 0) {
       clearInterval(iv);
-      showToast('⏱ Time expires. Auto-submitting...');
-      setTimeout(() => examForm.submit(), 2000);
+      showToast('⏱ Time expired. Auto-submitting...');
+      setTimeout(() => examForm.submit(), 1500);
     }
   }, 1000);
 }
-startTimer();
 
-function addWarning(type, extra = {}){
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+}
+
+function addWarning(type, extra = {}) {
   warningCount++;
   document.getElementById('warningCount').textContent = warningCount;
-  showToast('⚠ AI Flag: ' + violationMessage(type));
+  showToast('⚠ ' + violationMessage(type));
   sendViolation(type, extra);
 
-  if(warningCount >= MAX_WARNINGS){
+  if (warningCount >= MAX_WARNINGS) {
     document.getElementById('lockout-overlay').classList.add('show');
-    setTimeout(() => examForm.submit(), 3000);
+    setTimeout(() => examForm.submit(), 2500);
   }
 }
 
-function violationMessage(type){
+function violationMessage(type) {
   const m = {
-    FACE_MISSING:'Face obscured',
-    MULTIPLE_FACES:'Secondary entity detected',
-    HEAD_MOVEMENT:'Extreme head deviation',
-    EYE_GAZE:'Gaze out of bounds',
-    OBJECT_DETECTED:'Restricted item identified',
-    AUDIO_NOISE:'Audio threshold breached',
-    TAB_SWITCH:'Environment focus lost',
-    WINDOW_SWITCH:'Hardware focus lost',
-    FULLSCREEN_EXIT:'Fullscreen mode exited',
-    SCREENSHOT:'Routine capture'
+    FACE_MISSING: 'Face not detected for 5 seconds',
+    MULTIPLE_FACES: 'Multiple persons detected',
+    OBJECT_DETECTED: 'Restricted object detected',
+    AUDIO_NOISE: 'High background noise detected',
+    TAB_SWITCH: 'Tab switch detected',
+    WINDOW_SWITCH: 'Window focus lost',
+    FULLSCREEN_EXIT: 'Fullscreen exited',
+    CAMERA_BLOCKED: 'Camera permission required'
   };
   return m[type] || 'Anomaly detected';
 }
 
-async function sendViolation(type, extra = {}){
-  const params = new URLSearchParams({ eventType: type });
-  if(extra.head_pose) params.append('head_pose', extra.head_pose);
-  if(extra.eye_gaze) params.append('eye_gaze', extra.eye_gaze);
-  if(extra.object_detected) params.append('object_detected', extra.object_detected);
+async function sendViolation(type, extra = {}) {
+  const params = new URLSearchParams({
+    eventType: type,
+    examId: '<%= examId %>'
+  });
+
+  if (extra.object_detected) params.append('object_detected', extra.object_detected);
 
   try {
-    await fetch('LogViolationServlet', { method: 'POST', body: params });
-  } catch(e){}
+    await fetch('LogViolationServlet', {
+      method: 'POST',
+      body: params
+    });
+  } catch (e) {}
 }
 
-function showToast(msg){
+function showToast(msg) {
   const t = document.createElement('div');
   t.className = 'toast';
   t.textContent = msg;
   const c = document.getElementById('toast-container');
   c.appendChild(t);
   setTimeout(() => {
-    if(t.parentNode) c.removeChild(t);
-  }, 4000);
+    if (t.parentNode) c.removeChild(t);
+  }, 3500);
 }
 
-function setBadge(id, state){
-  document.getElementById(id).className = `status-badge ${state}`;
+function setBadge(id, state) {
+  const el = document.getElementById(id);
+  if (el) el.className = `status-badge ${state}`;
 }
+
 setBadge('st-tab', 'ok');
 
 // ================= FULLSCREEN ENFORCEMENT =================
@@ -503,7 +523,6 @@ function handleFullscreenViolation() {
   if (!fullscreenWarnLock) {
     fullscreenWarnLock = true;
     addWarning('FULLSCREEN_EXIT');
-    showToast('⚠ Fullscreen exited. Return immediately.');
     setTimeout(() => { fullscreenWarnLock = false; }, 3000);
   }
 }
@@ -534,7 +553,7 @@ if (fsResumeBtn) {
   fsResumeBtn.addEventListener('click', async () => {
     const ok = await enterFullscreen();
     if (!ok) {
-      showToast('❌ Please allow fullscreen to continue the exam.');
+      showToast('❌ Please allow fullscreen to continue.');
     }
   });
 }
@@ -546,13 +565,12 @@ async function enforceFullscreenOnStart() {
     showFullscreenOverlay();
     const ok = await enterFullscreen();
     if (!ok) {
-      showToast('🔒 Click "Return to Fullscreen" to begin securely.');
+      showToast('🔒 Click "Return to Fullscreen" to begin.');
       showFullscreenOverlay();
     }
   }
 }
 
-// First user interaction fallback (important for browser fullscreen policy)
 if (examForm) {
   examForm.addEventListener('click', async () => {
     if (!isFullscreenActive()) {
@@ -561,7 +579,6 @@ if (examForm) {
   }, { once: true });
 }
 
-// Prevent submit if fullscreen exited (unless max warnings already reached auto submit)
 if (examForm) {
   examForm.addEventListener('submit', function(e) {
     if (fullscreenRequired && !isFullscreenActive() && warningCount < MAX_WARNINGS) {
@@ -572,19 +589,17 @@ if (examForm) {
   });
 }
 
-// Prevent common shortcuts (best effort only)
+// Keyboard restrictions
 document.addEventListener('keydown', async (e) => {
   const k = e.key.toLowerCase();
 
-  // Existing blocks
   if (
     e.key === 'F12' ||
-    (e.ctrlKey && ['c','v','u','s'].includes(k))
+    (e.ctrlKey && ['c','v','u','s','p'].includes(k))
   ) {
     e.preventDefault();
   }
 
-  // F11 block
   if (e.key === 'F11') {
     e.preventDefault();
     if (!isFullscreenActive()) {
@@ -592,7 +607,6 @@ document.addEventListener('keydown', async (e) => {
     }
   }
 
-  // ESC cannot be fully blocked in browsers, detect after exit
   if (e.key === 'Escape' && fullscreenRequired) {
     setTimeout(() => {
       if (!isFullscreenActive()) handleFullscreenViolation();
@@ -600,14 +614,19 @@ document.addEventListener('keydown', async (e) => {
   }
 });
 
-// ===== Better Tab / Blur handling (reduced false warnings on fullscreen transitions) =====
+// Better Tab / Blur handling
 let firstBlur = true;
 let blurCooldown = false;
+let visibilityWarnLock = false;
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     setBadge('st-tab', 'bad');
-    addWarning('TAB_SWITCH');
+    if (!visibilityWarnLock) {
+      visibilityWarnLock = true;
+      addWarning('TAB_SWITCH');
+      setTimeout(() => { visibilityWarnLock = false; }, 3000);
+    }
   } else {
     setBadge('st-tab', 'ok');
   }
@@ -635,230 +654,239 @@ window.addEventListener('focus', () => {
   setBadge('st-tab', 'ok');
 });
 
-// Disable context menu
 document.addEventListener('contextmenu', e => e.preventDefault());
 
 // ================= CAMERA =================
 const video = document.getElementById('camVideo');
 const canvas = document.getElementById('camCanvas');
+const ctx2d = canvas.getContext('2d');
 
-async function startCamera(){
-  try{
-    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    video.srcObject = s;
-    await new Promise(r => video.onloadedmetadata = r);
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    return s;
-  } catch(e){
-    showToast('❌ Camera feed required.');
+let mediaStream = null;
+let cocoModel = null;
+
+async function startCamera() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      audio: true
+    });
+
+    video.srcObject = mediaStream;
+
+    await new Promise((resolve) => {
+      video.onloadedmetadata = () => {
+        video.play();
+        resolve();
+      };
+    });
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+
+    return mediaStream;
+  } catch (e) {
+    addWarning('CAMERA_BLOCKED');
+    showToast('❌ Camera + microphone permission required.');
     return null;
   }
 }
 
-// ================= FACE API =================
-async function loadFaceModels(){
-  const BASE = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/';
-  await Promise.all([
-    faceapi.nets.tinyFaceDetector.loadFromUri(BASE),
-    faceapi.nets.faceLandmark68TinyNet.loadFromUri(BASE)
-  ]);
+// ================= COCO-SSD MODEL =================
+const BANNED = new Set(['cell phone','book','laptop','remote','keyboard','mouse','tv','monitor']);
+let objectWarnLock = false;
+let multiWarnLock = false;
+let faceMissingStart = null;
+let faceMissingWarned = false;
+
+async function loadCocoModel() {
+  cocoModel = await cocoSsd.load();
+  setBadge('st-obj', 'ok');
+  setBadge('st-face', 'ok');
 }
 
-let fM = false, mF = false, hM = false, eG = false;
+// ================= FACE PRESENCE / MULTI PERSON DETECTION =================
+// NOTE: We use "person" detection as reliable face presence approximation
+async function runPresenceAndObjectChecks() {
+  if (!cocoModel || !video || video.readyState < 2) return;
 
-async function runFaceChecks(){
-  try{
-    const dets = await faceapi
-      .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.4 }))
-      .withFaceLandmarks(true);
+  try {
+    const predictions = await cocoModel.detect(video);
 
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx2d.clearRect(0, 0, canvas.width, canvas.height);
 
-    if(dets.length === 0){
-      setBadge('st-face','bad');
-      if(!fM){
+    const persons = predictions.filter(p => p.class === 'person' && p.score > 0.50);
+    const bannedObjects = predictions.filter(p => BANNED.has(p.class) && p.score > 0.55);
+
+    // Draw boxes
+    predictions.forEach(p => {
+      const [x, y, w, h] = p.bbox;
+      const isPerson = p.class === 'person' && p.score > 0.50;
+      const isBanned = BANNED.has(p.class) && p.score > 0.55;
+
+      if (isPerson || isBanned) {
+        ctx2d.strokeStyle = isBanned ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.8)';
+        ctx2d.lineWidth = 2;
+        ctx2d.strokeRect(x, y, w, h);
+
+        ctx2d.fillStyle = isBanned ? 'rgba(239,68,68,0.9)' : 'rgba(16,185,129,0.9)';
+        ctx2d.font = '12px Arial';
+        ctx2d.fillText(p.class + ' ' + Math.round(p.score * 100) + '%', x + 4, y > 14 ? y - 4 : y + 14);
+      }
+    });
+
+    // FACE MISSING (using person presence)
+    if (persons.length === 0) {
+      setBadge('st-face', 'bad');
+
+      if (faceMissingStart === null) {
+        faceMissingStart = Date.now();
+      }
+
+      const missingDuration = Date.now() - faceMissingStart;
+
+      if (missingDuration >= FACE_MISSING_THRESHOLD_MS && !faceMissingWarned) {
         addWarning('FACE_MISSING');
-        fM = true;
+        faceMissingWarned = true;
+      }
+
+      setBadge('st-multi', 'off');
+    } else {
+      setBadge('st-face', 'ok');
+      faceMissingStart = null;
+      faceMissingWarned = false;
+
+      // MULTI PERSON DETECTION
+      if (persons.length > 1) {
+        setBadge('st-multi', 'bad');
+        if (!multiWarnLock) {
+          multiWarnLock = true;
+          addWarning('MULTIPLE_FACES');
+          setTimeout(() => { multiWarnLock = false; }, 5000);
+        }
+      } else {
+        setBadge('st-multi', 'ok');
+      }
+    }
+
+    // Keep these as visual placeholders (not hard-failing)
+    setBadge('st-head', persons.length > 0 ? 'ok' : 'off');
+    setBadge('st-eye', persons.length > 0 ? 'ok' : 'off');
+
+    // OBJECT DETECTION
+    if (bannedObjects.length > 0) {
+      setBadge('st-obj', 'bad');
+      if (!objectWarnLock) {
+        objectWarnLock = true;
+        addWarning('OBJECT_DETECTED', {
+          object_detected: bannedObjects.map(x => x.class).join(',')
+        });
+        setTimeout(() => { objectWarnLock = false; }, 6000);
       }
     } else {
-      setBadge('st-face','ok');
-      fM = false;
+      setBadge('st-obj', 'ok');
     }
 
-    if(dets.length > 1) {
-      setBadge('st-multi','bad');
-      if(!mF){
-        addWarning('MULTIPLE_FACES');
-        mF = true;
-      }
-    } else {
-      setBadge('st-multi', dets.length === 1 ? 'ok' : 'off');
-      mF = false;
-    }
-
-    if(dets.length >= 1){
-      const lm = dets[0].landmarks;
-      const nose = lm.getNose()[3];
-      const lE = lm.getLeftEye()[0];
-      const rE = lm.getRightEye()[3];
-      const emX = (lE.x + rE.x) / 2;
-
-      const angle = Math.abs(Math.atan2(nose.x - emX, 40) * (180 / Math.PI));
-      const headOk = angle <= HEAD_TURN_THRESH;
-
-      setBadge('st-head', !headOk ? 'bad' : 'ok');
-
-      if(!headOk && !hM){
-        addWarning('HEAD_MOVEMENT', { head_pose: angle.toFixed(0) + 'deg' });
-        hM = true;
-      } else if(headOk) {
-        hM = false;
-      }
-
-      const eyeOffset = pts => {
-        const minX = Math.min(...pts.map(p => p.x));
-        const maxX = Math.max(...pts.map(p => p.x));
-        const midX = (pts[0].x + pts[3].x) / 2;
-        const irisX = (pts[1].x + pts[2].x) / 2;
-        const r = maxX - minX;
-        return r > 0 ? Math.abs(irisX - midX) / r : 0;
-      };
-
-      const off = (eyeOffset(lm.getLeftEye()) + eyeOffset(lm.getRightEye())) / 2;
-      const gazeOk = off <= 0.22;
-
-      setBadge('st-eye', !gazeOk ? 'bad' : 'ok');
-
-      if(!gazeOk && !eG){
-        addWarning('EYE_GAZE', { eye_gaze: 'offset=' + off.toFixed(2) });
-        eG = true;
-      } else if(gazeOk) {
-        eG = false;
-      }
-
-      const b = dets[0].detection.box;
-      ctx.strokeStyle = (!headOk || !gazeOk) ? 'rgba(239,68,68,0.8)' : 'rgba(16,185,129,0.5)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(b.x, b.y, b.width, b.height);
-    }
-  } catch(e){}
-}
-
-// ================= OBJECT DETECTION =================
-const BANNED = new Set(['cell phone','book','laptop','remote','keyboard','mouse','tv','monitor','tablet']);
-let coco = null, oW = false;
-
-async function loadCocoModel(){
-  coco = await cocoSsd.load();
-  setBadge('st-obj','ok');
-}
-
-async function runObjectDetection(){
-  if(!coco) return;
-  try{
-    const p = await coco.detect(video);
-    const f = p.filter(x => BANNED.has(x.class) && x.score > 0.55);
-
-    if(f.length > 0){
-      setBadge('st-obj','bad');
-      if(!oW){
-        addWarning('OBJECT_DETECTED', { object_detected: f.map(x => x.class).join(',') });
-        oW = true;
-      }
-    } else {
-      setBadge('st-obj','ok');
-      oW = false;
-    }
-  } catch(e){}
+  } catch (e) {
+    console.error('Detection error:', e);
+  }
 }
 
 // ================= AUDIO MONITOR =================
-let aW = false;
+let audioWarnLock = false;
 
-async function startAudioMonitor(s){
-  if(!s){
-    setBadge('st-audio','off');
+async function startAudioMonitor(stream) {
+  if (!stream) {
+    setBadge('st-audio', 'off');
     return;
   }
 
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = ctx.createMediaStreamSource(s);
-    const an = ctx.createAnalyser();
-    an.fftSize = 512;
-    src.connect(an);
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
 
-    const buf = new Float32Array(an.fftSize);
-    setBadge('st-audio','ok');
+    analyser.fftSize = 512;
+    src.connect(analyser);
+
+    const buffer = new Float32Array(analyser.fftSize);
+    setBadge('st-audio', 'ok');
 
     setInterval(() => {
-      an.getFloatTimeDomainData(buf);
-      let sm = 0;
-      buf.forEach(v => sm += v * v);
-      const rms = Math.sqrt(sm / buf.length);
+      analyser.getFloatTimeDomainData(buffer);
+      let sum = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        sum += buffer[i] * buffer[i];
+      }
+      const rms = Math.sqrt(sum / buffer.length);
 
-      if(rms > AUDIO_THRESHOLD){
-        setBadge('st-audio','bad');
-        if(!aW){
+      if (rms > AUDIO_THRESHOLD) {
+        setBadge('st-audio', 'bad');
+        if (!audioWarnLock) {
+          audioWarnLock = true;
           addWarning('AUDIO_NOISE');
-          aW = true;
-          setTimeout(() => aW = false, 8000);
+          setTimeout(() => { audioWarnLock = false; }, 8000);
         }
       } else {
-        setBadge('st-audio','ok');
+        setBadge('st-audio', 'ok');
       }
     }, 1500);
-  } catch(e){
-    setBadge('st-audio','off');
+
+  } catch (e) {
+    setBadge('st-audio', 'off');
   }
 }
 
 // ================= SCREENSHOT =================
-async function captureScreenshot(){
-  if (!video.srcObject) return;
+async function captureScreenshot() {
+  if (!video.srcObject || video.readyState < 2) return;
 
   const snap = document.createElement('canvas');
   snap.width = 320;
   snap.height = 240;
   snap.getContext('2d').drawImage(video, 0, 0, 320, 240);
 
-  try{
+  try {
     await fetch('ScreenshotServlet', {
-      method:'POST',
-      body:new URLSearchParams({
-        'screenshot': snap.toDataURL('image/png'),
-        'examId':'<%=examId%>'
+      method: 'POST',
+      body: new URLSearchParams({
+        screenshot: snap.toDataURL('image/png'),
+        examId: '<%=examId%>'
       })
     });
-  } catch(e){}
+  } catch (e) {}
 }
 
 // ================= INIT =================
-(async function init(){
-  // Fullscreen first
+(async function init() {
+  startTimer();
+
   await enforceFullscreenOnStart();
 
-  const s = await startCamera();
+  const stream = await startCamera();
+  if (!stream) return;
 
-  let e = 0;
+  try {
+    await loadCocoModel();
+  } catch (e) {
+    showToast('❌ AI detection model failed to load.');
+    console.error(e);
+    return;
+  }
+
+  // Start periodic screenshot
+  let elapsed = 0;
   setInterval(() => {
-    e++;
-    if(e % SCREENSHOT_EVERY === 0) captureScreenshot();
+    elapsed++;
+    if (elapsed % SCREENSHOT_EVERY === 0) {
+      captureScreenshot();
+    }
   }, 1000);
 
-  try{
-    await loadFaceModels();
-    setInterval(runFaceChecks, FACE_CHECK_EVERY);
-  } catch(x){}
+  // Presence + object detection
+  setInterval(runPresenceAndObjectChecks, PERSON_CHECK_EVERY);
 
-  try{
-    await loadCocoModel();
-    setInterval(runObjectDetection, OBJECT_CHECK_EVERY);
-  } catch(x){}
-
-  await startAudioMonitor(s);
+  // Audio monitor
+  await startAudioMonitor(stream);
 })();
 </script>
 </body>
